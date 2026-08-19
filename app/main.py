@@ -18,6 +18,7 @@ from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from app.search import Searcher, SearchHit
+from app.settings import get_settings
 
 ROOT = Path(__file__).resolve().parent.parent
 CORPUS_PATH = ROOT / "data" / "corpus_vn.jsonl"
@@ -36,6 +37,8 @@ async def lifespan(app: FastAPI):
             f"{CORPUS_PATH} missing. Run `make seed` first."
         )
     _searcher = Searcher.from_corpus(CORPUS_PATH)
+    settings = get_settings()
+    print(f"[startup] {settings.summary()} embedding_dim={_searcher.embedder.dim}")
     yield
     _searcher = None
 

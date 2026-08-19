@@ -18,7 +18,7 @@ import _setup  # noqa: F401  -- adds repo root to sys.path
 import json
 from pathlib import Path
 
-from fastembed import TextEmbedding
+from app.embeddings import Embedder
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct
 
@@ -51,7 +51,7 @@ print(json.dumps(docs[0], ensure_ascii=False, indent=2))
 # > Cho lab này dùng `bge-small-en` để mọi laptop chạy được nhanh.
 
 # %%
-embedder = TextEmbedding(model_name="BAAI/bge-small-en-v1.5")
+embedder = Embedder()
 sample = list(embedder.embed(["cloud computing tiếng Việt"]))[0]
 print(f"Vector dim: {len(sample)}")
 print(f"First 8 values: {sample[:8].tolist()}")
@@ -67,11 +67,11 @@ print(f"First 8 values: {sample[:8].tolist()}")
 client = QdrantClient(":memory:")
 client.create_collection(
     collection_name="lab19",
-    vectors_config=VectorParams(size=384, distance=Distance.COSINE),
+    vectors_config=VectorParams(size=embedder.dim, distance=Distance.COSINE),
 )
 
 # %% [markdown]
-# ## 4. TODO — embed + upsert toàn bộ corpus
+# ## 4. Embed + upsert toàn bộ corpus
 #
 # Embed `title + " " + text` cho từng doc, batch theo 64 docs/lần (fastembed
 # CPU-bound, batch=64 là sweet spot). Upsert vào Qdrant collection `lab19`.
@@ -79,7 +79,6 @@ client.create_collection(
 # **Hint:** xem `app/search.py` `_build_vector_index()` để tham khảo pattern.
 
 # %%
-# TODO: implement the embed + upsert loop here.
 # Expected outcome: client.count("lab19") == 1000
 # (~30 seconds on first run as fastembed downloads the model.)
 

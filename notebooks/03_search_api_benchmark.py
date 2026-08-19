@@ -15,6 +15,7 @@
 
 # %%
 import _setup  # noqa: F401
+import atexit
 import statistics
 import subprocess
 import time
@@ -35,9 +36,10 @@ proc = subprocess.Popen(
     cwd=str(ROOT),
 )
 
+atexit.register(lambda: proc.terminate() if proc.poll() is None else None)
 # Đợi server up + warm (Searcher.from_corpus loads embeddings + indexes 1000 docs)
 URL = "http://localhost:8000"
-for _ in range(60):
+for _ in range(600):
     try:
         r = httpx.get(f"{URL}/healthz", timeout=2.0)
         if r.status_code == 200 and r.json().get("ready"):
@@ -46,7 +48,7 @@ for _ in range(60):
         pass
     time.sleep(1)
 else:
-    raise RuntimeError("API didn't become ready within 60s")
+    raise RuntimeError("API didn't become ready within 600s")
 
 print(httpx.get(f"{URL}/healthz").json())
 
@@ -63,7 +65,7 @@ for h in body["hits"][:3]:
     print(f"  {h['doc_id']:>14}  score={h['score']:.4f}  {h['title']}")
 
 # %% [markdown]
-# ## 3. TODO — Latency benchmark (100 queries × 3 modes)
+# ## 3. Latency benchmark (100 queries × 3 modes)
 #
 # Dùng 50 golden queries × 2 reps = 100 calls/mode. Ghi nhận latency từ
 # `body["latency_ms"]` (server-side, đã trừ network) HOẶC từ wall-clock httpx

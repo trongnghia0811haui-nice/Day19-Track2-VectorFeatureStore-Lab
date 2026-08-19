@@ -54,7 +54,7 @@ make seed            Both: regenerate data/ files
 make api             Lite: FastAPI on :8000
 make lab             Lite: Jupyter Lab on :8888
 make benchmark       Both: Precision@10 + P99 latency table
-make test            Both: pytest (34 tests, ~2 s)
+make test            Both: pytest (41 tests, ~2 s)
 make gen-advanced    Both: regenerate NB6 compound queries + NB8 spend parquet
 make notebooks       Both: execute ALL notebooks headless (what the grader runs)
 make clean-lite      Lite: wipe venv + data + Feast registry
@@ -216,12 +216,16 @@ học viên cũng được. Full brief + self-checklist:
 ├── requirements-full.txt           # docker extras
 ├── pyproject.toml                  # for `uv` users
 ├── .env.example                    # env template
-├── notebooks/                      # 4 Jupytext .py files (source of truth)
+├── notebooks/                      # 8 Jupytext .py files (source of truth)
 │   ├── _setup.py
 │   ├── 01_embeddings_index.py
 │   ├── 02_hybrid_search_rrf.py
 │   ├── 03_search_api_benchmark.py
-│   └── 04_feast_feature_store.py
+│   ├── 04_feast_feature_store.py
+│   ├── 05_filtered_search.py
+│   ├── 06_agent_retrieval.py
+│   ├── 07_semantic_cache.py
+│   └── 08_feature_engineering.py
 ├── app/
 │   ├── main.py                     # FastAPI /search endpoint
 │   ├── search.py                   # Searcher class (kw / sem / hybrid)

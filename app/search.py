@@ -9,8 +9,8 @@ by Vespa, Elasticsearch, and the hybrid RAG production stacks in the deck §3.
 from __future__ import annotations
 
 import json
-import os
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
@@ -19,13 +19,20 @@ from qdrant_client.models import Distance, PointStruct, VectorParams
 from rank_bm25 import BM25Okapi
 
 from app.embeddings import Embedder
+from app.settings import get_settings, load_dotenv
+
+load_dotenv()
 
 Mode = Literal["keyword", "semantic", "hybrid"]
 # Model + dimension now come from EMBEDDING_BACKEND (see app/embeddings.py).
 # Defaults are unchanged: fastembed / BAAI/bge-small-en-v1.5 / 384-dim.
-EMBED_MODEL = Embedder().model_name
-EMBED_DIM = Embedder().dim
-COLLECTION = "lab19_corpus"
+_DEFAULT_EMBEDDER = Embedder()
+EMBED_MODEL = _DEFAULT_EMBEDDER.model_name
+EMBED_DIM = _DEFAULT_EMBEDDER.dim
+# Version the collection by embedding backend and dimension. A model swap can
+# therefore coexist with an existing server collection instead of deleting it
+# or causing an opaque vector-dimension error.
+COLLECTION = f"lab19_corpus_{_DEFAULT_EMBEDDER.backend}_{EMBED_DIM}_v1"
 
 
 @dataclass
@@ -93,16 +100,34 @@ class Searcher:
     def _build_vector_index(self) -> None:
         self.embedder = Embedder()
 
-        mode = os.getenv("QDRANT_MODE", "memory")
+        settings = get_settings()
+        mode = settings.qdrant_mode
         if mode == "server":
-            url = os.getenv("QDRANT_URL", "http://localhost:6333")
-            self.client = QdrantClient(url=url)
+            self.client = QdrantClient(url=settings.qdrant_url)
         else:
             self.client = QdrantClient(":memory:")
 
-        # Recreate is OK in lite mode (it's in-memory); for server, only create if missing.
+        # Recreate is OK in lite mode (the client is process-local). A server
+        # collection is durable: reuse a complete compatible index and require
+        # an explicit versioned collection/reset for partial state.
         existing = {c.name for c in self.client.get_collections().collections}
         if COLLECTION in existing and mode == "server":
+            info = self.client.get_collection(COLLECTION)
+            size = info.config.params.vectors.size
+            if size != self.embedder.dim:
+                raise RuntimeError(
+                    f"Collection {COLLECTION!r} has dimension {size}, "
+                    f"but backend {self.embedder.backend!r} needs {self.embedder.dim}. "
+                    "Choose a new collection version or reset it explicitly."
+                )
+            count = self.client.count(collection_name=COLLECTION).count
+            if count == len(self.docs):
+                return
+            raise RuntimeError(
+                f"Collection {COLLECTION!r} contains {count} vectors, expected "
+                f"{len(self.docs)}. Refusing to rebuild a server collection implicitly."
+            )
+        if COLLECTION in existing:
             self.client.delete_collection(COLLECTION)
         self.client.create_collection(
             collection_name=COLLECTION,
@@ -160,9 +185,14 @@ class Searcher:
             for i in ranked
         ]
 
+    @lru_cache(maxsize=2048)
+    def _query_vector(self, query: str) -> tuple[float, ...]:
+        assert self.embedder is not None
+        return tuple(float(v) for v in next(self.embedder.embed([query])))
+
     def _search_semantic(self, query: str, top_k: int) -> list[SearchHit]:
         assert self.client is not None and self.embedder is not None
-        q_vec = next(self.embedder.embed([query])).tolist()
+        q_vec = list(self._query_vector(query))
         result = self.client.query_points(
             collection_name=COLLECTION,
             query=q_vec,

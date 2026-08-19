@@ -24,6 +24,9 @@ from dataclasses import dataclass
 from typing import Iterable, Iterator
 
 import numpy as np
+from app.settings import load_dotenv
+
+load_dotenv()
 
 DEFAULT_BACKEND = "fastembed"
 

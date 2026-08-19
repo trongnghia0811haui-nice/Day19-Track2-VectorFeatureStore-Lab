@@ -34,7 +34,7 @@ FEAST_DATA.mkdir(exist_ok=True)
 # Ở lab, sinh từ corpus + synthetic user activity để học pattern materialize.
 
 # %%
-NOW = datetime.now(timezone.utc).replace(microsecond=0)
+NOW = datetime(2027, 1, 1, tzinfo=timezone.utc)
 
 
 def make_user_profile(n_users: int = 100) -> pl.DataFrame:
@@ -147,7 +147,7 @@ print(f"Single lookup: {single_latency_ms:.2f}ms")
 print({k: v[0] for k, v in features.items()})
 
 # %% [markdown]
-# ## 5. TODO — Batch latency benchmark (100 lookups, P99)
+# ## 5. Batch latency benchmark (100 lookups, P99)
 
 # %%
 latencies: list[float] = []
